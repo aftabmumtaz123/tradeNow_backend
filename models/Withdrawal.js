@@ -4,45 +4,52 @@ const withdrawalSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: true,
   },
   amount: {
     type: Number,
-    required: true
+    required: true,
   },
   paymentMethod: {
     type: String,
     enum: ['easypaisa', 'jazzcash', 'bank'],
-    required: true
+    required: true,
   },
   accountNumber: {
     type: String,
-    required: true
+    required: true,
   },
   accountName: {
     type: String,
-    required: true
+    required: true,
   },
+  // pending = request submitted, money held, not paid yet
+  // paid     = admin sent the money
+  // rejected = admin rejected, balance refunded
   status: {
     type: String,
-    enum: ['pending', 'approved', 'rejected', 'completed'],
-    default: 'pending'
+    enum: ['pending', 'paid', 'rejected'],
+    default: 'pending',
   },
   adminNote: {
     type: String,
-    default: ''
+    default: '',
   },
   reviewedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    default: null
+    default: null,
   },
   reviewedAt: {
     type: Date,
-    default: null
-  }
+    default: null,
+  },
+  paidAt: {
+    type: Date,
+    default: null,
+  },
 }, {
-  timestamps: true
+  timestamps: true,
 });
 
 module.exports = mongoose.model('Withdrawal', withdrawalSchema);

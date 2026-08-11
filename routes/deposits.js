@@ -6,12 +6,12 @@ const User = require('../models/User');
 const Transaction = require('../models/Transaction');
 const { protect, admin } = require('../middleware/auth');
 const upload = require('../middleware/upload');
+const { uploadBuffer } = require('../config/cloudinary');
 
-// Helper to handle multer errors
-const uploadScreenshot = (req, res, next) => {
+const handleMulter = (req, res, next) => {
   upload.single('screenshot')(req, res, (err) => {
     if (err) {
-      console.error('Upload error:', err.message);
+      console.error('Multer error:', err.message);
       return res.status(400).json({
         success: false,
         message: err.message || 'File upload failed. Use JPG or PNG under 5MB.',
@@ -21,26 +21,12 @@ const uploadScreenshot = (req, res, next) => {
   });
 };
 
-// Get screenshot URL (works for both Cloudinary and local)
-const getFileUrl = (file) => {
-  if (!file) return null;
-  // Cloudinary returns path / secure_url / url
-  if (file.path && file.path.startsWith('http')) return file.path;
-  if (file.secure_url) return file.secure_url;
-  if (file.url) return file.url;
-  // Local fallback
-  return `/uploads/${file.filename}`;
-};
-
-// User: Submit deposit request with screenshot
-router.post('/', protect, uploadScreenshot, async (req, res) => {
+// User: Submit deposit — image goes to Cloudinary, URL saved in MongoDB
+router.post('/', protect, handleMulter, async (req, res) => {
   try {
-    console.log('Deposit request body:', req.body);
-    console.log('File:', req.file ? (req.file.filename || req.file.public_id || req.file.path) : 'NO FILE');
-
     const { planId, transactionId, paymentMethod } = req.body;
 
-    if (!req.file) {
+    if (!req.file || !req.file.buffer) {
       return res.status(400).json({ success: false, message: 'Screenshot is required' });
     }
     if (!transactionId || !String(transactionId).trim()) {
@@ -66,7 +52,30 @@ router.post('/', protect, uploadScreenshot, async (req, res) => {
       });
     }
 
-    const screenshotUrl = getFileUrl(req.file);
+    // Upload to Cloudinary — must return https URL
+    let screenshotUrl;
+    try {
+      const uploaded = await uploadBuffer(req.file.buffer, {
+        folder: 'al-zahra-trade/screenshots',
+        prefix: 'deposit',
+      });
+      screenshotUrl = uploaded.url;
+    } catch (cloudErr) {
+      console.error('Cloudinary error:', cloudErr);
+      return res.status(500).json({
+        success: false,
+        message:
+          cloudErr.message ||
+          'Image upload to Cloudinary failed. Check CLOUDINARY_* environment variables.',
+      });
+    }
+
+    if (!screenshotUrl || !screenshotUrl.startsWith('http')) {
+      return res.status(500).json({
+        success: false,
+        message: 'Invalid image URL from Cloudinary',
+      });
+    }
 
     const deposit = await Deposit.create({
       user: req.user._id,
@@ -74,7 +83,7 @@ router.post('/', protect, uploadScreenshot, async (req, res) => {
       amount: plan.investment,
       paymentMethod: paymentMethod || 'easypaisa',
       transactionId: String(transactionId).trim(),
-      screenshot: screenshotUrl,
+      screenshot: screenshotUrl, // full Cloudinary HTTPS URL in MongoDB
       status: 'pending',
     });
 
@@ -94,7 +103,6 @@ router.post('/', protect, uploadScreenshot, async (req, res) => {
   }
 });
 
-// User: Get own deposits
 router.get('/my', protect, async (req, res) => {
   try {
     const deposits = await Deposit.find({ user: req.user._id })
@@ -106,7 +114,6 @@ router.get('/my', protect, async (req, res) => {
   }
 });
 
-// Admin: Get all pending deposits
 router.get('/admin/pending', protect, admin, async (req, res) => {
   try {
     const deposits = await Deposit.find({ status: 'pending' })
@@ -119,7 +126,6 @@ router.get('/admin/pending', protect, admin, async (req, res) => {
   }
 });
 
-// Admin: Get all deposits
 router.get('/admin/all', protect, admin, async (req, res) => {
   try {
     const { status, page = 1, limit = 20 } = req.query;
@@ -137,16 +143,10 @@ router.get('/admin/all', protect, admin, async (req, res) => {
   }
 });
 
-// Admin: Approve deposit
 router.put('/admin/:id/approve', protect, admin, async (req, res) => {
   try {
-    const deposit = await Deposit.findById(req.params.id)
-      .populate('plan')
-      .populate('user');
-
-    if (!deposit) {
-      return res.status(404).json({ success: false, message: 'Deposit not found' });
-    }
+    const deposit = await Deposit.findById(req.params.id).populate('plan').populate('user');
+    if (!deposit) return res.status(404).json({ success: false, message: 'Deposit not found' });
     if (deposit.status !== 'pending') {
       return res.status(400).json({ success: false, message: 'Deposit already processed' });
     }
@@ -159,7 +159,6 @@ router.put('/admin/:id/approve', protect, admin, async (req, res) => {
 
     const user = await User.findById(deposit.user._id);
     const plan = deposit.plan;
-
     const startDate = new Date();
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + plan.duration);
@@ -182,7 +181,6 @@ router.put('/admin/:id/approve', protect, admin, async (req, res) => {
       status: 'completed',
     });
 
-    // Referral bonuses
     if (user.referredBy) {
       const level1 = await User.findById(user.referredBy);
       if (level1) {
@@ -198,7 +196,6 @@ router.put('/admin/:id/approve', protect, admin, async (req, res) => {
           description: `Level 1 referral bonus from ${user.username}`,
           status: 'completed',
         });
-
         if (level1.referredBy) {
           const level2 = await User.findById(level1.referredBy);
           if (level2) {
@@ -219,18 +216,13 @@ router.put('/admin/:id/approve', protect, admin, async (req, res) => {
       }
     }
 
-    res.json({
-      success: true,
-      message: 'Deposit approved. Plan activated successfully.',
-      deposit,
-    });
+    res.json({ success: true, message: 'Deposit approved. Plan activated.', deposit });
   } catch (error) {
     console.error('Approve error:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// Admin: Reject deposit
 router.put('/admin/:id/reject', protect, admin, async (req, res) => {
   try {
     const deposit = await Deposit.findById(req.params.id);

@@ -1,93 +1,54 @@
 const mongoose = require('mongoose');
 
 const settingsSchema = new mongoose.Schema({
-  siteName: {
-    type: String,
-    default: 'AL ZAHRA TRADE'
-  },
-  siteLogo: {
-    type: String,
-    default: ''
-  },
-  siteFavicon: {
-    type: String,
-    default: ''
-  },
-  primaryColor: {
-    type: String,
-    default: '#22c55e'
-  },
-  // Payment accounts (managed by admin)
+  siteName: { type: String, default: 'AL ZAHRA TRADE' },
+  siteLogo: { type: String, default: '' },
+  siteFavicon: { type: String, default: '' },
+  primaryColor: { type: String, default: '#22c55e' },
+  themeDefault: { type: String, enum: ['dark', 'light'], default: 'dark' },
+
   paymentAccounts: [{
-    method: {
-      type: String,
-      enum: ['easypaisa', 'jazzcash', 'bank'],
-      required: true
-    },
-    accountNumber: {
-      type: String,
-      required: true
-    },
-    accountName: {
-      type: String,
-      required: true
-    },
-    isActive: {
-      type: Boolean,
-      default: true
-    }
-  }],
-  // Banners for dashboard / landing
-  banners: [{
-    title: String,
-    image: String,
-    link: String,
+    method: { type: String, enum: ['easypaisa', 'jazzcash', 'bank', 'other'], required: true },
+    accountNumber: { type: String, required: true },
+    accountName: { type: String, required: true },
+    image: { type: String, default: '' }, // logo/icon for the method
+    instructions: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
-    order: { type: Number, default: 0 }
   }],
-  // Contact / support
-  supportEmail: {
-    type: String,
-    default: 'support@alzahra.trade'
-  },
-  supportWhatsapp: {
-    type: String,
-    default: ''
-  },
-  // Min withdrawal
-  minWithdrawal: {
-    type: Number,
-    default: 500
-  },
-  // Referral levels enabled
-  referralEnabled: {
-    type: Boolean,
-    default: true
-  },
-  // Maintenance mode
-  maintenanceMode: {
-    type: Boolean,
-    default: false
-  },
-  // Landing page content
-  landingHeadline: {
-    type: String,
-    default: 'Invest with clarity and confidence.'
-  },
+
+  banners: [{
+    title: { type: String, default: '' },
+    subtitle: { type: String, default: '' },
+    image: { type: String, default: '' },
+    link: { type: String, default: '' },
+    placement: { type: String, enum: ['landing', 'dashboard', 'both'], default: 'dashboard' },
+    isActive: { type: Boolean, default: true },
+    order: { type: Number, default: 0 },
+  }],
+
+  supportEmail: { type: String, default: 'support@alzahra.trade' },
+  supportWhatsapp: { type: String, default: '' },
+  supportPhone: { type: String, default: '' },
+  minWithdrawal: { type: Number, default: 500 },
+  maxWithdrawal: { type: Number, default: 500000 },
+  referralEnabled: { type: Boolean, default: true },
+  maintenanceMode: { type: Boolean, default: false },
+  maintenanceMessage: { type: String, default: 'We are under maintenance. Please check back soon.' },
+
+  landingHeadline: { type: String, default: 'Invest with clarity and confidence.' },
   landingSubheadline: {
     type: String,
-    default: 'Create your account, choose a plan and manage deposits, withdrawals, profit history and referral rewards.'
-  }
-}, {
-  timestamps: true
-});
+    default: 'Create your account, choose a plan and manage deposits, withdrawals, profit history and referral rewards.',
+  },
 
-// Ensure only one settings document
-settingsSchema.statics.getSettings = async function() {
+  // SEO / social
+  metaTitle: { type: String, default: '' },
+  metaDescription: { type: String, default: '' },
+}, { timestamps: true });
+
+settingsSchema.statics.getSettings = async function () {
   let settings = await this.findOne();
-  if (!settings) {
-    settings = await this.create({});
-  }
+  if (!settings) settings = await this.create({});
   return settings;
 };
 

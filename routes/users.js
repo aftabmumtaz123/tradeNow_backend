@@ -95,19 +95,72 @@ router.put('/admin/:id/toggle', protect, admin, async (req, res) => {
   }
 });
 
-// Admin dashboard stats
+// Admin dashboard stats + analytics
 router.get('/admin/stats', protect, admin, async (req, res) => {
   try {
     const totalUsers = await User.countDocuments({ role: 'user' });
     const activePlans = await User.countDocuments({ currentPlan: { $ne: null } });
     const pendingDeposits = await Deposit.countDocuments({ status: 'pending' });
     const pendingWithdrawals = await Withdrawal.countDocuments({ status: 'pending' });
+    const approvedDeposits = await Deposit.countDocuments({ status: 'approved' });
+    const rejectedDeposits = await Deposit.countDocuments({ status: 'rejected' });
+
     const totalInvested = await User.aggregate([
       { $group: { _id: null, total: { $sum: '$totalInvested' } } },
     ]);
     const totalProfit = await User.aggregate([
       { $group: { _id: null, total: { $sum: '$totalProfit' } } },
     ]);
+
+    // Last 7 days user registrations
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    const usersByDay = await User.aggregate([
+      { $match: { role: 'user', createdAt: { $gte: sevenDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const depositsByDay = await Deposit.aggregate([
+      { $match: { createdAt: { $gte: sevenDaysAgo } } },
+      {
+        $group: {
+          _id: { $dateToString: { format: '%Y-%m-%d', date: '$createdAt' } },
+          count: { $sum: 1 },
+          amount: { $sum: '$amount' },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const depositsByStatus = [
+      { name: 'Pending', value: pendingDeposits },
+      { name: 'Approved', value: approvedDeposits },
+      { name: 'Rejected', value: rejectedDeposits },
+    ];
+
+    // Fill last 7 days labels
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      days.push(d.toISOString().slice(0, 10));
+    }
+    const userSeries = days.map((day) => ({
+      date: day,
+      users: usersByDay.find((x) => x._id === day)?.count || 0,
+    }));
+    const depositSeries = days.map((day) => {
+      const row = depositsByDay.find((x) => x._id === day);
+      return { date: day, count: row?.count || 0, amount: row?.amount || 0 };
+    });
 
     res.json({
       success: true,
@@ -116,8 +169,15 @@ router.get('/admin/stats', protect, admin, async (req, res) => {
         activePlans,
         pendingDeposits,
         pendingWithdrawals,
+        approvedDeposits,
+        rejectedDeposits,
         totalInvested: totalInvested[0]?.total || 0,
         totalProfit: totalProfit[0]?.total || 0,
+      },
+      charts: {
+        usersByDay: userSeries,
+        depositsByDay: depositSeries,
+        depositsByStatus,
       },
     });
   } catch (error) {
