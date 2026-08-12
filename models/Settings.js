@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const settingsSchema = new mongoose.Schema({
-  siteName: { type: String, default: 'AL ZAHRA TRADE' },
+  siteName: { type: String, default: 'A.U.S' },
   siteLogo: { type: String, default: '' },
   siteFavicon: { type: String, default: '' },
   primaryColor: { type: String, default: '#22c55e' },

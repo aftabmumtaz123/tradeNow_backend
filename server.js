@@ -59,11 +59,11 @@ app.use('/api/withdrawals', require('./routes/withdrawals'));
 app.use('/api/users', require('./routes/users'));
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'AL ZAHRA TRADE API is running' });
+  res.json({ status: 'ok', message: 'A.U.S API is running' });
 });
 
 app.get('/', (req, res) => {
-  res.json({ name: 'AL ZAHRA TRADE API', health: '/api/health' });
+  res.json({ name: 'A.U.S API', health: '/api/health' });
 });
 
 const User = require('./models/User');
