@@ -1,21 +1,18 @@
 const cloudinary = require("cloudinary").v2;
 const multer = require("multer");
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Multer memory storage
 const memoryStorage = multer.memoryStorage();
 
-// Upload configurations
 const uploadScreenshot = multer({
   storage: memoryStorage,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB
+    fileSize: 5 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -35,7 +32,7 @@ const uploadScreenshot = multer({
 const uploadAsset = multer({
   storage: memoryStorage,
   limits: {
-    fileSize: 3 * 1024 * 1024, // 3MB
+    fileSize: 3 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
     const allowedTypes = [
@@ -53,8 +50,7 @@ const uploadAsset = multer({
   },
 });
 
-// Upload buffer to Cloudinary
-const uploadToCloudinary = (buffer, options = {}) => {
+const uploadBuffer = (buffer, options = {}) => {
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       options,
@@ -75,5 +71,5 @@ module.exports = {
   cloudinary,
   uploadScreenshot,
   uploadAsset,
-  uploadToCloudinary,
+  uploadBuffer,
 };

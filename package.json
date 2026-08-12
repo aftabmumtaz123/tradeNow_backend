@@ -1,7 +1,7 @@
 {
   "name": "al-zahra-trade-backend",
   "version": "1.0.0",
-  "description": "AL ZAHRA TRADE - MERN Backend",
+  "description": "A.U.S - MERN Backend",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
