@@ -26,7 +26,7 @@ async function seed() {
 
   // Settings with Easypaisa account from screenshots
   await Settings.create({
-    siteName: 'A.U.S',
+    siteName: 'AL ZAHRA TRADE',
     paymentAccounts: [
       { method: 'easypaisa', accountNumber: '03423176901', accountName: 'Nazeeran bibi', isActive: true }
     ],
